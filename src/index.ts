@@ -9,6 +9,7 @@ import { DEMO_EMAIL, DEMO_OTP } from "./controllers/user.js";
 
 dotenv.config();
 
+const app = express();
 export let redisClient: any; // ✅ export here
 
 const startServer = async () => {
@@ -24,8 +25,6 @@ const startServer = async () => {
 
   await redisClient.set(`otp:${DEMO_EMAIL}`, DEMO_OTP);
   console.log(`✅ Demo OTP preloaded for ${DEMO_EMAIL}: ${DEMO_OTP}`);
-
-  const app = express();
 
   app.use(express.json());
   app.use(
