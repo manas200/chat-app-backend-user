@@ -1,0 +1,43 @@
+app = "pulse-user-service"  # Change to unique name
+
+[build]
+  builder = "heroku/buildpacks:20"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "5000"
+
+[http_service]
+  internal_port = 5000
+  force_https = true
+  auto_stop_machines = false  # Keep alive to prevent cold starts
+  
+  [[http_service.checks]]
+    interval = 10000
+    timeout = 5000
+    method = "GET"
+    path = "/health"
+
+[[services]]
+  internal_port = 5000
+  protocol = "tcp"
+  auto_stop_machines = false
+
+  [services.concurrency]
+    hard_limit = 25
+    soft_limit = 20
+    type = "connections"
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [[services.tcp_checks]]
+    grace_period = "1s"
+    interval = "15s"
+    restart_limit = 0
+    timeout = "2s"
