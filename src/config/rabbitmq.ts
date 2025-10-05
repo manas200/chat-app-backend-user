@@ -1,4 +1,7 @@
+// rabbitmq.ts
 import amqp from "amqplib";
+import dotenv from "dotenv";
+dotenv.config();
 
 let channel: amqp.Channel | null = null;
 let channelReady: Promise<void>;
