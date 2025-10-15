@@ -1,4 +1,3 @@
-// rabbitmq.ts
 import amqp from "amqplib";
 import dotenv from "dotenv";
 dotenv.config();
@@ -9,11 +8,21 @@ let channelReady: Promise<void>;
 export const connectRabbitMQ = async () => {
   channelReady = new Promise(async (resolve, reject) => {
     try {
-      const connection = await amqp.connect(
-        process.env.CLOUDAMQP_URL as string
-      );
+      const amqpUrl = process.env.CLOUDAMQP_URL;
+      if (!amqpUrl) {
+        throw new Error("CLOUDAMQP_URL not defined");
+      }
+
+      const connection = await amqp.connect(amqpUrl);
       channel = await connection.createChannel();
       console.log("✅ Connected to RabbitMQ (CloudAMQP)");
+
+      connection.on("error", (err) =>
+        console.error("🐇 RabbitMQ connection error:", err)
+      );
+      connection.on("close", () =>
+        console.warn("🐇 RabbitMQ connection closed")
+      );
       resolve();
     } catch (error) {
       console.error("❌ Failed to connect to RabbitMQ", error);
@@ -27,7 +36,7 @@ export const connectRabbitMQ = async () => {
 export const publishToQueue = async (queueName: string, message: any) => {
   if (!channel) {
     console.warn("⚠️ RabbitMQ channel not ready. Waiting...");
-    await channelReady; // wait until channel is ready
+    await channelReady;
   }
 
   if (!channel) {

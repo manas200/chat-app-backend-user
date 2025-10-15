@@ -10,41 +10,54 @@ import { DEMO_EMAIL, DEMO_OTP } from "./controllers/user.js";
 dotenv.config();
 
 const app = express();
-export let redisClient: any; // ✅ export here
+export let redisClient: ReturnType<typeof createClient>; // more accurate typing
 
 const startServer = async () => {
-  await connectDb();
-  await connectRabbitMQ(); // ✅ wait for RabbitMQ before handling requests
+  try {
+    // ✅ Connect to MongoDB first
+    await connectDb();
+    console.log("✅ Connected to MongoDB");
 
-  redisClient = createClient({
-    url: process.env.REDIS_URL,
-  });
+    // ✅ Connect to RabbitMQ and wait until ready
+    await connectRabbitMQ();
 
-  await redisClient.connect();
-  console.log("✅ Connected to Redis");
+    // ✅ Connect to Redis
+    redisClient = createClient({
+      url: process.env.REDIS_URL,
+    });
 
-  await redisClient.set(`otp:${DEMO_EMAIL}`, DEMO_OTP);
-  console.log(`✅ Demo OTP preloaded for ${DEMO_EMAIL}: ${DEMO_OTP}`);
+    redisClient.on("error", (err) => console.error("Redis error:", err));
+    await redisClient.connect();
+    console.log("✅ Connected to Redis");
 
-  app.use(express.json());
-  app.use(
-    cors({
-      origin: [
-        "http://localhost:3000",
-        "https://the-pulse-chat-app.vercel.app",
-      ],
-      credentials: true,
-    })
-  );
+    // ✅ Preload demo OTP
+    await redisClient.set(`otp:${DEMO_EMAIL}`, DEMO_OTP);
+    console.log(`✅ Demo OTP preloaded for ${DEMO_EMAIL}: ${DEMO_OTP}`);
 
-  app.use("/api/v1", userRoutes);
+    // ✅ Middleware
+    app.use(express.json());
+    app.use(
+      cors({
+        origin: [
+          "http://localhost:3000",
+          "https://the-pulse-chat-app.vercel.app",
+        ],
+        credentials: true,
+      })
+    );
 
-  const port = process.env.PORT || 5000;
-  app.listen(port, () => {
-    console.log(`🚀 User service running on port ${port}`);
-  });
+    // ✅ Routes
+    app.use("/api/v1", userRoutes);
+
+    // ✅ Start server
+    const port = process.env.PORT || 5000;
+    app.listen(port, () => {
+      console.log(`🚀 User service running on port ${port}`);
+    });
+  } catch (err) {
+    console.error("❌ Failed to start server", err);
+    process.exit(1); // stop if something fails
+  }
 };
 
-startServer().catch((err) => {
-  console.error("❌ Failed to start server", err);
-});
+startServer();
