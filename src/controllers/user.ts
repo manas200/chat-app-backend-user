@@ -7,12 +7,11 @@ import { AuthenticatedRequest } from "../middleware/isAuth.js";
 import { User } from "../model/User.js";
 
 export const DEMO_EMAIL = "dummy@gmail.com";
-export const DEMO_OTP = "123456"; // fixed OTP for recruiter/demo login
+export const DEMO_OTP = "123456";
 
 export const loginUser = TryCatch(async (req, res) => {
   const { email } = req.body;
 
-  // Special case for demo account
   if (email === DEMO_EMAIL) {
     return res.status(200).json({
       message: `Demo OTP is '${DEMO_OTP}'`,
@@ -30,7 +29,6 @@ export const loginUser = TryCatch(async (req, res) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const otpKey = `otp:${email}`;
   await redisClient.set(otpKey, otp, { EX: 300 }); // expires in 5 min
-
   await redisClient.set(rateLimitKey, "true", { EX: 60 }); // rate limit 1 per min
 
   const message = {
@@ -73,7 +71,6 @@ export const verifyUser = TryCatch(async (req, res) => {
   if (!user) {
     const name = email.slice(0, 8);
 
-    // Generate random avatar from DiceBear
     const randomSeed = Math.random().toString(36).substring(2, 15);
     const avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${randomSeed}`;
 

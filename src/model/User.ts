@@ -3,7 +3,7 @@ import mongoose, { Document, Schema } from "mongoose";
 export interface IUser extends Document {
   name: string;
   email: string;
-  profilePic?: string; // Added
+  profilePic?: string;
 }
 
 const schema: Schema<IUser> = new Schema(
