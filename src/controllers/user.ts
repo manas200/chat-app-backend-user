@@ -148,5 +148,134 @@ export const getAllUsers = TryCatch(async (req: AuthenticatedRequest, res) => {
 
 export const getAUser = TryCatch(async (req, res) => {
   const user = await User.findById(req.params.id);
-  res.json(user);
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  // Create response object with privacy-aware fields
+  const userResponse = {
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    // Only include lastSeen if privacy settings allow it
+    ...(user.privacySettings?.showLastSeen !== false && {
+      lastSeen: user.lastSeen,
+    }),
+    // Only include online status visibility if privacy settings allow it
+    privacySettings: {
+      showOnlineStatus: user.privacySettings?.showOnlineStatus ?? true,
+      showReadReceipts: user.privacySettings?.showReadReceipts ?? true,
+      showLastSeen: user.privacySettings?.showLastSeen ?? true,
+    },
+  };
+
+  res.json(userResponse);
+});
+
+// Get privacy settings
+export const getPrivacySettings = TryCatch(
+  async (req: AuthenticatedRequest, res) => {
+    const user = await User.findById(req.user?._id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({
+      privacySettings: user.privacySettings,
+    });
+  }
+);
+
+// Update privacy settings
+export const updatePrivacySettings = TryCatch(
+  async (req: AuthenticatedRequest, res) => {
+    const user = await User.findById(req.user?._id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const { showOnlineStatus, showReadReceipts, showLastSeen } = req.body;
+
+    // Update only the fields that are provided
+    if (typeof showOnlineStatus === "boolean") {
+      user.privacySettings.showOnlineStatus = showOnlineStatus;
+    }
+    if (typeof showReadReceipts === "boolean") {
+      user.privacySettings.showReadReceipts = showReadReceipts;
+    }
+    if (typeof showLastSeen === "boolean") {
+      user.privacySettings.showLastSeen = showLastSeen;
+    }
+
+    await user.save();
+
+    const token = generateToken(user);
+
+    res.json({
+      message: "Privacy settings updated",
+      privacySettings: user.privacySettings,
+      user,
+      token,
+    });
+  }
+);
+
+// Update last seen timestamp (called when user disconnects)
+export const updateLastSeen = TryCatch(async (req, res) => {
+  const { userId } = req.body;
+
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required" });
+  }
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { lastSeen: new Date() },
+    { new: true }
+  );
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  res.json({
+    message: "Last seen updated",
+    lastSeen: user.lastSeen,
+  });
+});
+
+// Get user with privacy-aware data (for other users to view)
+export const getUserPublicProfile = TryCatch(async (req, res) => {
+  const user = await User.findById(req.params.id);
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  // Ensure privacySettings has default values for existing users
+  const privacySettings = {
+    showOnlineStatus: user.privacySettings?.showOnlineStatus ?? true,
+    showReadReceipts: user.privacySettings?.showReadReceipts ?? true,
+    showLastSeen: user.privacySettings?.showLastSeen ?? true,
+  };
+
+  // Return data respecting privacy settings
+  const publicData = {
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    profilePic: user.profilePic || "",
+    lastSeen: privacySettings.showLastSeen ? user.lastSeen : null,
+    privacySettings: privacySettings,
+  };
+
+  console.log(`📤 Returning public profile for ${user.name}:`, {
+    lastSeen: publicData.lastSeen,
+    privacySettings: publicData.privacySettings,
+  });
+
+  res.json(publicData);
 });
